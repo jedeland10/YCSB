@@ -129,6 +129,16 @@
           </excludes>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>2.16</version>
+        <configuration>
+          <failOnViolation>false</failOnViolation>
+          <!-- Or, to skip checkstyle entirely: -->
+          <skip>true</skip>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 

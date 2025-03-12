@@ -369,19 +369,22 @@ public class CoreWorkload extends Workload {
   protected int insertionRetryLimit;
   protected int insertionRetryInterval;
 
+  protected int keyPrefixSize;
+
   private Measurements measurements = Measurements.getMeasurements();
 
-  public static String buildKeyName(long keynum, int zeropadding, boolean orderedinserts) {
-    if (!orderedinserts) {
-      keynum = Utils.hash(keynum);
+  public static String buildKeyName(long keynum, int keyPrefixSize, boolean orderedinserts) {
+    // We'll reserve the last 8 characters for the numeric part.
+    int reserved = 8;
+    int prefixLength = keyPrefixSize - reserved;
+    if (prefixLength < 0) {
+      prefixLength = 0;
     }
-    String value = Long.toString(keynum);
-    int fill = zeropadding - value.length();
-    String prekey = "user";
-    for (int i = 0; i < fill; i++) {
-      prekey += '0';
-    }
-    return prekey + value;
+    // Generate a constant prefix of 'A's for the first (keyPrefixSize - reserved) characters.
+    String prefix = "A".repeat(prefixLength);
+    // Format keynum as an 8-digit number with leading zeros.
+    String numPart = String.format("%08d", keynum);
+    return prefix + numPart;
   }
 
   protected static NumberGenerator getFieldLengthGenerator(Properties p) throws WorkloadException {
@@ -422,6 +425,7 @@ public class CoreWorkload extends Workload {
   public void init(Properties p) throws WorkloadException {
     table = p.getProperty(TABLENAME_PROPERTY, TABLENAME_PROPERTY_DEFAULT);
 
+    keyPrefixSize = Integer.parseInt(p.getProperty("keyprefixsize", "128"));
     fieldcount =
         Long.parseLong(p.getProperty(FIELD_COUNT_PROPERTY, FIELD_COUNT_PROPERTY_DEFAULT));
     final String fieldnameprefix = p.getProperty(FIELD_NAME_PREFIX, FIELD_NAME_PREFIX_DEFAULT);
@@ -612,7 +616,7 @@ public class CoreWorkload extends Workload {
   @Override
   public boolean doInsert(DB db, Object threadstate) {
     int keynum = keysequence.nextValue().intValue();
-    String dbkey = CoreWorkload.buildKeyName(keynum, zeropadding, orderedinserts);
+    String dbkey = CoreWorkload.buildKeyName(keynum, keyPrefixSize, orderedinserts);
     HashMap<String, ByteIterator> values = buildValues(dbkey);
 
     Status status;
