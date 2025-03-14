@@ -1,7 +1,5 @@
-#!/bin/bash
-
 # Array of keyprefix sizes
-keyprefixsizes=(128 256 512 1024 2048 4096)
+keyprefixsizes=(128 1024 4096 8192)
 NUM_RUNS=10
 
 for keyprefix in "${keyprefixsizes[@]}"; do
