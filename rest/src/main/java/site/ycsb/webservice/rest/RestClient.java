@@ -17,6 +17,11 @@
 
 package site.ycsb.webservice.rest;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -77,6 +82,9 @@ public class RestClient extends DB {
   private int readTimeout = 10000;
   private int execTimeout = 10000;
   private volatile Criteria requestTimedout = new Criteria(false);
+
+  // Create a shared scheduler (for example, in a static initializer or injected dependency)
+  private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
   @Override
   public void init() throws DBException {
@@ -248,45 +256,55 @@ public class RestClient extends DB {
     return responseCode;
   }
 
+
   private int httpExecute(HttpEntityEnclosingRequestBase request, String data) throws IOException {
+    // Reset the timeout flag
     requestTimedout.setIsSatisfied(false);
-    Thread timer = new Thread(new Timer(execTimeout, requestTimedout));
-    timer.start();
+    
+    // Schedule a timeout task that sets the flag after execTimeout milliseconds
+    ScheduledFuture<?> timeoutFuture = scheduler.schedule(() -> {
+        requestTimedout.setIsSatisfied(true);
+    }, execTimeout, TimeUnit.MILLISECONDS);
+
     int responseCode = 200;
-    for (int i = 0; i < headers.length; i = i + 2) {
+    for (int i = 0; i < headers.length; i += 2) {
       request.setHeader(headers[i], headers[i + 1]);
     }
-    InputStreamEntity reqEntity = new InputStreamEntity(new ByteArrayInputStream(data.getBytes()),
-          ContentType.APPLICATION_FORM_URLENCODED);
+    
+    InputStreamEntity reqEntity = new InputStreamEntity(
+      new ByteArrayInputStream(data.getBytes()),
+      ContentType.APPLICATION_FORM_URLENCODED
+    );
     reqEntity.setChunked(true);
     request.setEntity(reqEntity);
+    
     CloseableHttpResponse response = client.execute(request);
     responseCode = response.getStatusLine().getStatusCode();
     HttpEntity responseEntity = response.getEntity();
-    // If null entity don't bother about connection release.
+
     if (responseEntity != null) {
       InputStream stream = responseEntity.getContent();
       if (compressedResponse) {
-        stream = new GZIPInputStream(stream); 
+          stream = new GZIPInputStream(stream);
       }
       BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-      StringBuffer responseContent = new StringBuffer();
-      String line = "";
-      while ((line = reader.readLine()) != null) {
-        if (requestTimedout.isSatisfied()) {
-          // Must avoid memory leak.
-          reader.close();
-          stream.close();
-          EntityUtils.consumeQuietly(responseEntity);
-          response.close();
-          client.close();
-          throw new TimeoutException();
+        StringBuilder responseContent = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+          if (requestTimedout.isSatisfied()) {
+            // Avoid memory leaks
+            reader.close();
+            stream.close();
+            EntityUtils.consumeQuietly(responseEntity);
+            response.close();
+            client.close();
+            throw new TimeoutException();
+          }
+          responseContent.append(line);
         }
-        responseContent.append(line);
-      }
-      timer.interrupt();
-      // Closing the input stream will trigger connection release.
-      stream.close();
+        // Cancel the timeout task if the request finished in time
+        timeoutFuture.cancel(true);
+        stream.close();
     }
     EntityUtils.consumeQuietly(responseEntity);
     response.close();
