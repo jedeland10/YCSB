@@ -1,15 +1,16 @@
 # Array of keyprefix sizes
 keyprefixsizes=(128 1024 4096 8192)
-NUM_RUNS=5
+NUM_RUNS=3
 
 for keyprefix in "${keyprefixsizes[@]}"; do
-    output_file="../ycsb_bench/nocache/closed/${keyprefix}.txt"
+    output_file="../ycsb_bench/cache/latency/${keyprefix}.txt"
     
     # Clear output file for this keyprefix size
     > "$output_file"
 
     # Start the server using goreman in the background.
-    pushd ../../etcd/contrib/raftexample > /dev/null
+    # pushd ../../etcd/contrib/raftexample > /dev/null
+    pushd ../etcd/contrib/raftexample > /dev/null
     rm -rf raftexample*
     go build -o raftexample
     # Start goreman in the background.
@@ -38,7 +39,7 @@ for keyprefix in "${keyprefixsizes[@]}"; do
         ./bin/ycsb run rest -P workloads/workload_write \
             -p url.prefix=http://127.0.0.1:12380/ \
             -p keyprefixsize=${keyprefix} \
-            -p operationcount=500000 \
+            -p operationcount=120000 \
             -p threadcount=1 \
             -p fieldcount=1 \
             | grep -E '^\[OVERALL\]|^\[UPDATE\]' | tee -a "$output_file"
