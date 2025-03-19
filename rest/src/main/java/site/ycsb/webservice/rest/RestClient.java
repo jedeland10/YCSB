@@ -43,7 +43,6 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
@@ -57,12 +56,6 @@ import site.ycsb.DBException;
 import site.ycsb.Status;
 import site.ycsb.StringByteIterator;
 
-/**
- * Class responsible for making web service requests for benchmarking purpose.
- * Using Apache HttpClient over standard Java HTTP API as this is more flexible
- * and provides better functionality. For example HttpClient can automatically
- * handle redirects and proxy authentication which the standard Java API can't.
- */
 public class RestClient extends DB {
 
   private static final String URL_PREFIX = "url.prefix";
@@ -83,7 +76,7 @@ public class RestClient extends DB {
   private int execTimeout = 10000;
   private volatile Criteria requestTimedout = new Criteria(false);
 
-  // Create a shared scheduler (for example, in a static initializer or injected dependency)
+  // Shared scheduler for timeouts.
   private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
   @Override
@@ -96,8 +89,8 @@ public class RestClient extends DB {
     execTimeout = Integer.valueOf(props.getProperty(EXEC_TIMEOUT, "10")) * 1000;
     logEnabled = Boolean.valueOf(props.getProperty(LOG_ENABLED, "false").trim());
     compressedResponse = Boolean.valueOf(props.getProperty(COMPRESSED_RESPONSE, "false").trim());
-    headers = props.getProperty(HEADERS, "Accept */* Content-Type application/xml user-agent Mozilla/5.0 ").trim()
-          .split(" ");
+    headers = props.getProperty(HEADERS, "Accept */* Content-Type application/xml user-agent Mozilla/5.0 ")
+        .trim().split(" ");
     setupClient();
   }
 
@@ -107,6 +100,7 @@ public class RestClient extends DB {
     requestBuilder = requestBuilder.setConnectionRequestTimeout(readTimeout);
     requestBuilder = requestBuilder.setSocketTimeout(readTimeout);
     HttpClientBuilder clientBuilder = HttpClientBuilder.create().setDefaultRequestConfig(requestBuilder.build());
+    // Create a persistent HTTP client.
     this.client = clientBuilder.setConnectionManagerShared(true).build();
   }
 
@@ -119,8 +113,7 @@ public class RestClient extends DB {
       responseCode = handleExceptions(e, urlPrefix + endpoint, HttpMethod.GET);
     }
     if (logEnabled) {
-      System.err.println(new StringBuilder("GET Request: ").append(urlPrefix).append(endpoint)
-            .append(" | Response Code: ").append(responseCode).toString());
+      System.err.println("GET Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
     }
     return getStatus(responseCode);
   }
@@ -134,8 +127,7 @@ public class RestClient extends DB {
       responseCode = handleExceptions(e, urlPrefix + endpoint, HttpMethod.PUT);
     }
     if (logEnabled) {
-      System.err.println(new StringBuilder("POST Request: ").append(urlPrefix).append(endpoint)
-            .append(" | Response Code: ").append(responseCode).toString());
+      System.err.println("POST Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
     }
     return getStatus(responseCode);
   }
@@ -149,8 +141,7 @@ public class RestClient extends DB {
       responseCode = handleExceptions(e, urlPrefix + endpoint, HttpMethod.DELETE);
     }
     if (logEnabled) {
-      System.err.println(new StringBuilder("DELETE Request: ").append(urlPrefix).append(endpoint)
-            .append(" | Response Code: ").append(responseCode).toString());
+      System.err.println("DELETE Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
     }
     return getStatus(responseCode);
   }
@@ -164,8 +155,7 @@ public class RestClient extends DB {
       responseCode = handleExceptions(e, urlPrefix + endpoint, HttpMethod.PUT);
     }
     if (logEnabled) {
-      System.err.println(new StringBuilder("PUT Request: ").append(urlPrefix).append(endpoint)
-            .append(" | Response Code: ").append(responseCode).toString());
+      System.err.println("PUT Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
     }
     return getStatus(responseCode);
   }
@@ -197,87 +187,69 @@ public class RestClient extends DB {
 
   private int handleExceptions(Exception e, String url, String method) {
     if (logEnabled) {
-      System.err.println(new StringBuilder(method).append(" Request: ").append(url).append(" | ")
-          .append(e.getClass().getName()).append(" occured | Error message: ")
-          .append(e.getMessage()).toString());
+      System.err.println(method + " Request: " + url + " | " + e.getClass().getName() +
+          " occurred | Error message: " + e.getMessage());
     }
-      
     if (e instanceof ClientProtocolException) {
       return 400;
     }
     return 500;
   }
 
-  // Connection is automatically released back in case of an exception.
+  // Note: We now reuse the client, so we don't close it after every request.
   private int httpGet(String endpoint, Map<String, ByteIterator> result) throws IOException {
     requestTimedout.setIsSatisfied(false);
     Thread timer = new Thread(new Timer(execTimeout, requestTimedout));
     timer.start();
     int responseCode = 200;
     HttpGet request = new HttpGet(endpoint);
-    for (int i = 0; i < headers.length; i = i + 2) {
+    for (int i = 0; i < headers.length; i += 2) {
       request.setHeader(headers[i], headers[i + 1]);
     }
     CloseableHttpResponse response = client.execute(request);
     responseCode = response.getStatusLine().getStatusCode();
     HttpEntity responseEntity = response.getEntity();
-    // If null entity don't bother about connection release.
     if (responseEntity != null) {
       InputStream stream = responseEntity.getContent();
-      /*
-       * TODO: Gzip Compression must be supported in the future. Header[]
-       * header = response.getAllHeaders();
-       * if(response.getHeaders("Content-Encoding")[0].getValue().contains
-       * ("gzip")) stream = new GZIPInputStream(stream);
-       */
       BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
       StringBuffer responseContent = new StringBuffer();
-      String line = "";
+      String line;
       while ((line = reader.readLine()) != null) {
         if (requestTimedout.isSatisfied()) {
-          // Must avoid memory leak.
           reader.close();
           stream.close();
           EntityUtils.consumeQuietly(responseEntity);
           response.close();
-          client.close();
           throw new TimeoutException();
         }
         responseContent.append(line);
       }
       timer.interrupt();
       result.put("response", new StringByteIterator(responseContent.toString()));
-      // Closing the input stream will trigger connection release.
       stream.close();
     }
     EntityUtils.consumeQuietly(responseEntity);
     response.close();
-    client.close();
     return responseCode;
   }
 
-
   private int httpExecute(HttpEntityEnclosingRequestBase request, String data) throws IOException {
-    // Reset the timeout flag
     requestTimedout.setIsSatisfied(false);
-    
-    // Schedule a timeout task that sets the flag after execTimeout milliseconds
     ScheduledFuture<?> timeoutFuture = scheduler.schedule(() -> {
-        requestTimedout.setIsSatisfied(true);
+      requestTimedout.setIsSatisfied(true);
     }, execTimeout, TimeUnit.MILLISECONDS);
 
     int responseCode = 200;
     for (int i = 0; i < headers.length; i += 2) {
       request.setHeader(headers[i], headers[i + 1]);
     }
-    
+
     InputStreamEntity reqEntity = new InputStreamEntity(
-      new ByteArrayInputStream(data.getBytes()),
-      ContentType.APPLICATION_FORM_URLENCODED
-    );
+        new ByteArrayInputStream(data.getBytes()),
+        ContentType.APPLICATION_FORM_URLENCODED);
     reqEntity.setChunked(true);
     request.setEntity(reqEntity);
-    
+
     CloseableHttpResponse response = client.execute(request);
     responseCode = response.getStatusLine().getStatusCode();
     HttpEntity responseEntity = response.getEntity();
@@ -285,54 +257,49 @@ public class RestClient extends DB {
     if (responseEntity != null) {
       InputStream stream = responseEntity.getContent();
       if (compressedResponse) {
-          stream = new GZIPInputStream(stream);
+        stream = new GZIPInputStream(stream);
       }
       BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"));
-        StringBuilder responseContent = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-          if (requestTimedout.isSatisfied()) {
-            // Avoid memory leaks
-            reader.close();
-            stream.close();
-            EntityUtils.consumeQuietly(responseEntity);
-            response.close();
-            client.close();
-            throw new TimeoutException();
-          }
-          responseContent.append(line);
+      StringBuilder responseContent = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (requestTimedout.isSatisfied()) {
+          reader.close();
+          stream.close();
+          EntityUtils.consumeQuietly(responseEntity);
+          response.close();
+          throw new TimeoutException();
         }
-        // Cancel the timeout task if the request finished in time
-        timeoutFuture.cancel(true);
-        stream.close();
+        responseContent.append(line);
+      }
+      timeoutFuture.cancel(true);
+      stream.close();
     }
     EntityUtils.consumeQuietly(responseEntity);
     response.close();
-    client.close();
     return responseCode;
   }
-  
+
   private int httpDelete(String endpoint) throws IOException {
     requestTimedout.setIsSatisfied(false);
     Thread timer = new Thread(new Timer(execTimeout, requestTimedout));
     timer.start();
     int responseCode = 200;
     HttpDelete request = new HttpDelete(endpoint);
-    for (int i = 0; i < headers.length; i = i + 2) {
+    for (int i = 0; i < headers.length; i += 2) {
       request.setHeader(headers[i], headers[i + 1]);
     }
     CloseableHttpResponse response = client.execute(request);
     responseCode = response.getStatusLine().getStatusCode();
     response.close();
-    client.close();
     return responseCode;
   }
 
   /**
-   * Marks the input {@link Criteria} as satisfied when the input time has elapsed.
+   * Marks the input {@link Criteria} as satisfied when the input time has
+   * elapsed.
    */
   class Timer implements Runnable {
-
     private long timeout;
     private Criteria timedout;
 
@@ -350,14 +317,12 @@ public class RestClient extends DB {
         // Do nothing.
       }
     }
-
   }
 
   /**
    * Sets the flag when a criteria is fulfilled.
    */
   class Criteria {
-
     private boolean isSatisfied;
 
     public Criteria(boolean isSatisfied) {
@@ -371,20 +336,31 @@ public class RestClient extends DB {
     public void setIsSatisfied(boolean satisfied) {
       this.isSatisfied = satisfied;
     }
-
   }
 
   /**
    * Private exception class for execution timeout.
    */
   class TimeoutException extends RuntimeException {
-
     private static final long serialVersionUID = 1L;
-    
+
     public TimeoutException() {
       super("HTTP Request exceeded execution time limit.");
     }
-
   }
 
+  @Override
+  public void cleanup() throws DBException {
+    try {
+      cleanupClient(); // Close the persistent HTTP client
+    } catch (IOException e) {
+      throw new DBException("Error during HTTP client cleanup", e);
+    }
+  }
+
+  public void cleanupClient() throws IOException {
+    if (client != null) {
+      client.close();
+    }
+  }
 }

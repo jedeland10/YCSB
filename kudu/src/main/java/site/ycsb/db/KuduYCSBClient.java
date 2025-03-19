@@ -59,7 +59,7 @@ import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
  * </code>
  * </pre>
  *
- * </blockquote> Example to run:  <blockquote>
+ * </blockquote> Example to run: <blockquote>
  *
  * <pre>
  * <code>
@@ -147,16 +147,16 @@ public class KuduYCSBClient extends site.ycsb.DB {
       Properties prop = getProperties();
 
       String masterAddresses = prop.getProperty(MASTER_ADDRESSES_OPT,
-                                                "localhost:7051");
+          "localhost:7051");
       LOG.debug("Connecting to the masters at {}", masterAddresses);
 
       int numClients = getIntFromProp(prop, NUM_CLIENTS_OPT, DEFAULT_NUM_CLIENTS);
       for (int i = 0; i < numClients; i++) {
         clients.add(new KuduClient.KuduClientBuilder(masterAddresses)
-                                  .defaultSocketReadTimeoutMs(DEFAULT_SLEEP)
-                                  .defaultOperationTimeoutMs(DEFAULT_SLEEP)
-                                  .defaultAdminOperationTimeoutMs(DEFAULT_SLEEP)
-                                  .build());
+            .defaultSocketReadTimeoutMs(DEFAULT_SLEEP)
+            .defaultOperationTimeoutMs(DEFAULT_SLEEP)
+            .defaultAdminOperationTimeoutMs(DEFAULT_SLEEP)
+            .build());
       }
     }
   }
@@ -187,24 +187,24 @@ public class KuduYCSBClient extends site.ycsb.DB {
       }
       int blockSize = getIntFromProp(prop, BLOCK_SIZE_OPT, BLOCK_SIZE_DEFAULT);
       int fieldCount = getIntFromProp(prop, CoreWorkload.FIELD_COUNT_PROPERTY,
-                                      Integer.parseInt(CoreWorkload.FIELD_COUNT_PROPERTY_DEFAULT));
+          Integer.parseInt(CoreWorkload.FIELD_COUNT_PROPERTY_DEFAULT));
       final String fieldprefix = prop.getProperty(CoreWorkload.FIELD_NAME_PREFIX,
-                                                  CoreWorkload.FIELD_NAME_PREFIX_DEFAULT);
+          CoreWorkload.FIELD_NAME_PREFIX_DEFAULT);
 
       List<ColumnSchema> columns = new ArrayList<ColumnSchema>(fieldCount + 1);
 
       ColumnSchema keyColumn = new ColumnSchema.ColumnSchemaBuilder(KEY, STRING)
-                                               .key(true)
-                                               .desiredBlockSize(blockSize)
-                                               .build();
+          .key(true)
+          .desiredBlockSize(blockSize)
+          .build();
       columns.add(keyColumn);
       COLUMN_NAMES.add(KEY);
       for (int i = 0; i < fieldCount; i++) {
         String name = fieldprefix + i;
         COLUMN_NAMES.add(name);
         columns.add(new ColumnSchema.ColumnSchemaBuilder(name, STRING)
-                                    .desiredBlockSize(blockSize)
-                                    .build());
+            .desiredBlockSize(blockSize)
+            .build());
       }
       schema = new Schema(columns);
 
@@ -241,9 +241,9 @@ public class KuduYCSBClient extends site.ycsb.DB {
             ++upperNum;
           }
           PartialRow lower = schema.newPartialRow();
-          lower.addString(KEY, CoreWorkload.buildKeyName(lowerNum, zeropadding, orderedinserts));
+          lower.addString(KEY, CoreWorkload.buildKeyName(lowerNum, zeropadding, orderedinserts, 0));
           PartialRow upper = schema.newPartialRow();
-          upper.addString(KEY, CoreWorkload.buildKeyName(upperNum, zeropadding, orderedinserts));
+          upper.addString(KEY, CoreWorkload.buildKeyName(upperNum, zeropadding, orderedinserts, 0));
           builder.addRangePartition(lower, upper);
         }
       } else {
@@ -264,8 +264,8 @@ public class KuduYCSBClient extends site.ycsb.DB {
   }
 
   private static int getIntFromProp(Properties prop,
-                                    String propName,
-                                    int defaultValue) throws DBException {
+      String propName,
+      int defaultValue) throws DBException {
     String intStr = prop.getProperty(propName);
     if (intStr == null) {
       return defaultValue;
@@ -290,7 +290,7 @@ public class KuduYCSBClient extends site.ycsb.DB {
 
   @Override
   public Status read(String table, String key, Set<String> fields,
-                     Map<String, ByteIterator> result) {
+      Map<String, ByteIterator> result) {
     Vector<HashMap<String, ByteIterator>> results = new Vector<>();
     final Status status = scan(table, key, 1, fields, results);
     if (!status.equals(Status.OK)) {
@@ -305,10 +305,10 @@ public class KuduYCSBClient extends site.ycsb.DB {
 
   @Override
   public Status scan(String table,
-                     String startkey,
-                     int recordcount,
-                     Set<String> fields,
-                     Vector<HashMap<String, ByteIterator>> result) {
+      String startkey,
+      int recordcount,
+      Set<String> fields,
+      Vector<HashMap<String, ByteIterator>> result) {
     try {
       KuduScanner.KuduScannerBuilder scannerBuilder = client.newScannerBuilder(kuduTable);
       List<String> querySchema;
@@ -348,9 +348,9 @@ public class KuduYCSBClient extends site.ycsb.DB {
   }
 
   private void addAllRowsToResult(RowResultIterator it,
-                                  int recordcount,
-                                  List<String> querySchema,
-                                  Vector<HashMap<String, ByteIterator>> result) throws Exception {
+      int recordcount,
+      List<String> querySchema,
+      Vector<HashMap<String, ByteIterator>> result) throws Exception {
     RowResult row;
     HashMap<String, ByteIterator> rowResult = new HashMap<>(querySchema.size());
     if (it == null) {

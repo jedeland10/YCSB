@@ -89,8 +89,8 @@ public class DBWrapper extends DB {
     try (final TraceScope span = tracer.newScope(scopeStringInit)) {
       db.init();
 
-      this.reportLatencyForEachError = Boolean.parseBoolean(getProperties().
-          getProperty(REPORT_LATENCY_FOR_EACH_ERROR_PROPERTY,
+      this.reportLatencyForEachError = Boolean
+          .parseBoolean(getProperties().getProperty(REPORT_LATENCY_FOR_EACH_ERROR_PROPERTY,
               REPORT_LATENCY_FOR_EACH_ERROR_PROPERTY_DEFAULT));
 
       if (!reportLatencyForEachError) {
@@ -127,14 +127,14 @@ public class DBWrapper extends DB {
    * Read a record from the database. Each field/value pair from the result
    * will be stored in a HashMap.
    *
-   * @param table The name of the table
-   * @param key The record key of the record to read.
+   * @param table  The name of the table
+   * @param key    The record key of the record to read.
    * @param fields The list of fields to read, or null for all of them
    * @param result A HashMap of field/value pairs for the result
    * @return The result of the operation.
    */
   public Status read(String table, String key, Set<String> fields,
-                     Map<String, ByteIterator> result) {
+      Map<String, ByteIterator> result) {
     try (final TraceScope span = tracer.newScope(scopeStringRead)) {
       long ist = measurements.getIntendedStartTimeNs();
       long st = System.nanoTime();
@@ -150,15 +150,16 @@ public class DBWrapper extends DB {
    * Perform a range scan for a set of records in the database.
    * Each field/value pair from the result will be stored in a HashMap.
    *
-   * @param table The name of the table
-   * @param startkey The record key of the first record to read.
+   * @param table       The name of the table
+   * @param startkey    The record key of the first record to read.
    * @param recordcount The number of records to read
-   * @param fields The list of fields to read, or null for all of them
-   * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+   * @param fields      The list of fields to read, or null for all of them
+   * @param result      A Vector of HashMaps, where each HashMap is a set
+   *                    field/value pairs for one record
    * @return The result of the operation.
    */
   public Status scan(String table, String startkey, int recordcount,
-                     Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+      Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
     try (final TraceScope span = tracer.newScope(scopeStringScan)) {
       long ist = measurements.getIntendedStartTimeNs();
       long st = System.nanoTime();
@@ -171,7 +172,7 @@ public class DBWrapper extends DB {
   }
 
   private void measure(String op, Status result, long intendedStartTimeNanos,
-                       long startTimeNanos, long endTimeNanos) {
+      long startTimeNanos, long endTimeNanos) {
     String measurementName = op;
     if (result == null || !result.isOk()) {
       if (this.reportLatencyForEachError ||
@@ -188,16 +189,18 @@ public class DBWrapper extends DB {
   }
 
   /**
-   * Update a record in the database. Any field/value pairs in the specified values HashMap will be written into the
-   * record with the specified record key, overwriting any existing values with the same field name.
+   * Update a record in the database. Any field/value pairs in the specified
+   * values HashMap will be written into the
+   * record with the specified record key, overwriting any existing values with
+   * the same field name.
    *
-   * @param table The name of the table
-   * @param key The record key of the record to write.
+   * @param table  The name of the table
+   * @param key    The record key of the record to write.
    * @param values A HashMap of field/value pairs to update in the record
    * @return The result of the operation.
    */
   public Status update(String table, String key,
-                       Map<String, ByteIterator> values) {
+      Map<String, ByteIterator> values) {
     try (final TraceScope span = tracer.newScope(scopeStringUpdate)) {
       long ist = measurements.getIntendedStartTimeNs();
       long st = System.nanoTime();
@@ -214,13 +217,13 @@ public class DBWrapper extends DB {
    * values HashMap will be written into the record with the specified
    * record key.
    *
-   * @param table The name of the table
-   * @param key The record key of the record to insert.
+   * @param table  The name of the table
+   * @param key    The record key of the record to insert.
    * @param values A HashMap of field/value pairs to insert in the record
    * @return The result of the operation.
    */
   public Status insert(String table, String key,
-                       Map<String, ByteIterator> values) {
+      Map<String, ByteIterator> values) {
     try (final TraceScope span = tracer.newScope(scopeStringInsert)) {
       long ist = measurements.getIntendedStartTimeNs();
       long st = System.nanoTime();
@@ -236,7 +239,7 @@ public class DBWrapper extends DB {
    * Delete a record from the database.
    *
    * @param table The name of the table
-   * @param key The record key of the record to delete.
+   * @param key   The record key of the record to delete.
    * @return The result of the operation.
    */
   public Status delete(String table, String key) {
