@@ -34,3 +34,5 @@ echo "---------------------------------------" | tee -a "$output_file"
     -p keyprefixsize="$keyprefixsize" \
     -p recordcount="$record_count" -p operationcount="$operation_count" -p fieldcount=1 2>&1 \
     | grep -E '^\[OVERALL\]|^\[UPDATE\]' | tee -a "$output_file"
+
+echo "---------------------------------------" | tee -a "$output_file"
