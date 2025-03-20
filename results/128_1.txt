@@ -1,0 +1,21 @@
+TEST Performing load phase...
+[OVERALL], RunTime(ms), 174
+[OVERALL], Throughput(ops/sec), 57.47126436781609
+[INSERT], Operations, 10
+[INSERT], AverageLatency(us), 2483.1
+[INSERT], MinLatency(us), 274
+[INSERT], MaxLatency(us), 21839
+[INSERT], 95thPercentileLatency(us), 21839
+[INSERT], 99thPercentileLatency(us), 21839
+[INSERT], Return=OK, 10
+---------------------------------------
+[OVERALL], RunTime(ms), 139
+[OVERALL], Throughput(ops/sec), 71.94244604316546
+[UPDATE], Operations, 10
+[UPDATE], AverageLatency(us), 2226.0
+[UPDATE], MinLatency(us), 287
+[UPDATE], MaxLatency(us), 19231
+[UPDATE], 95thPercentileLatency(us), 19231
+[UPDATE], 99thPercentileLatency(us), 19231
+[UPDATE], Return=OK, 10
+---------------------------------------

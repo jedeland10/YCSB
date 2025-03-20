@@ -12,6 +12,9 @@ url_prefix="$4"         # e.g. "http://127.0.0.1:12380/"
 record_count="$5"
 operation_count="$6"
 
+echo "${output_file_path} from 1st"
+echo "$output_file_path from 2nd"
+
 # Build the output file name: output_file_path/{keyprefixsize}_{run_index}.txt
 output_file="${output_file_path}/${keyprefixsize}_${run_index}.txt"
 
@@ -24,7 +27,7 @@ echo "TEST Performing load phase..." | tee -a "$output_file"
     -p url.prefix="$url_prefix" \
     -p recordcount="$record_count" -p operationcount=1 \
     -p keyprefixsize="$keyprefixsize" \
-    -p insertproportion=1 -p updateproportion=0 -p fieldcount=1 \
+    -p insertproportion=1 -p updateproportion=0 -p fieldcount=1 2>&1 \
     | grep -E '^\[OVERALL\]|^\[INSERT\]' | tee -a "$output_file"
 
 echo "---------------------------------------" | tee -a "$output_file"
