@@ -35,6 +35,7 @@ echo "---------------------------------------" | tee -a "$output_file"
 ./bin/ycsb run rest -P workloads/workload_write \
     -p url.prefix="$url_prefix" \
     -p keyprefixsize="$keyprefixsize" \
+    -p threadcount=1 \
     -p recordcount="$record_count" -p operationcount="$operation_count" -p fieldcount=1 2>&1 \
     | grep -E '^\[OVERALL\]|^\[UPDATE\]' | tee -a "$output_file"
 
