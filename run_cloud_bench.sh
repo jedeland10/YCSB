@@ -1,6 +1,6 @@
 # Ensure we have exactly four parameters
 if [ "$#" -ne 6 ]; then
-  echo "Usage: $0 <output_file_path> <run_index> <keyprefixsize> <url_prefix> <record_count> <operation_count>"
+  echo "Usage: $0 <output_file_path> <run_index> <keyprefixsize> <url_prefix> <record_count> <operation_count> <thread_count>"
   exit 1
 fi
 
@@ -11,6 +11,7 @@ keyprefixsize="$3"      # e.g. "4096"
 url_prefix="$4"         # e.g. "http://127.0.0.1:12380/"
 record_count="$5"
 operation_count="$6"
+thread_count="$7"
 
 echo "${output_file_path} from 1st"
 echo "$output_file_path from 2nd"
