@@ -1,5 +1,5 @@
 # Ensure we have exactly four parameters
-if [ "$#" -ne 6 ]; then
+if [ "$#" -ne 7 ]; then
   echo "Usage: $0 <output_file_path> <run_index> <keyprefixsize> <url_prefix> <record_count> <operation_count> <thread_count>"
   exit 1
 fi
