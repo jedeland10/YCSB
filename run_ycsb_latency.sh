@@ -29,7 +29,7 @@ for keyprefix in "${keyprefixsizes[@]}"; do
         echo "Waiting for server to start..."
         sleep 5  # adjust this as needed for your server startup time
         echo "Performing load phase..." | tee -a "$output_file"
-        ./bin/ycsb load rest -J-Xss256k -P workloads/workload_write \
+        ./bin/ycsb load rest -P workloads/workload_write \
             -p url.prefix=http://127.0.0.1:12380/ \
             -p recordcount=10000 -p operationcount=10000 \
             -p keyprefixsize=${keyprefix} \

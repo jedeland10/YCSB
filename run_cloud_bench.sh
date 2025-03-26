@@ -13,26 +13,12 @@ record_count="$5"
 operation_count="$6"
 thread_count="$7"
 
-echo "${output_file_path} from 1st"
-echo "$output_file_path from 2nd"
-
 # Build the output file name: output_file_path/{keyprefixsize}_{run_index}.txt
 output_file="${output_file_path}/${keyprefixsize}_${run_index}.txt"
 
 # Clear the output file
 > "$output_file"
 
-echo "TEST Performing load phase..." | tee -a "$output_file"
-
-./bin/ycsb load rest -P workloads/workload_write \
-    -p url.prefix="$url_prefix" \
-    -p recordcount="$record_count" -p operationcount=1 \
-    -p threadcount="$thread_count" \
-    -p keyprefixsize="$keyprefixsize" \
-    -p insertproportion=1 -p updateproportion=0 -p fieldcount=1 2>&1 \
-    | grep -E '^\[OVERALL\]|^\[INSERT\]' | tee -a "$output_file"
-
-echo "---------------------------------------" | tee -a "$output_file"
 
 ./bin/ycsb run rest -P workloads/workload_write \
     -p url.prefix="$url_prefix" \
