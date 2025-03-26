@@ -1,21 +1,16 @@
-output_file="../ycsb_bench/cache/once/test.txt"
+OPERATIONS=3000
 
-NUM_CLIENTS=5
-OPERATIONS=30000
 
-# Clear output file for this keyprefix size
-> "$output_file"
-
-echo "TEST Performing load phase..." | tee -a "$output_file"
+echo "TEST Performing load phase..."
 ./bin/ycsb load rest -P workloads/workload_write \
     -p url.prefix=http://127.0.0.1:12380/ \
-    -p recordcount=3000 -p operationcount=3000 \
+    -p recordcount=100 -p operationcount=100 \
     -p keyprefixsize=128 \
     -p threadcount=1 \
     -p insertproportion=1 -p updateproportion=0 -p fieldcount=1 \
-    | grep -E '^\[OVERALL\]|^\[INSERT\]' | tee -a "$output_file"
+    | grep -E '^\[OVERALL\]|^\[INSERT\]'
 
-echo "---------------------------------------" | tee -a "$output_file"
+echo "---------------------------------------"
 
 wait
 
@@ -25,8 +20,8 @@ echo ">>> Starting YCSB client $i"
     -p keyprefixsize=128 \
     -p recordcount=1000 \
     -p operationcount=${OPERATIONS} \
-    -p threadcount=1 \
-    -p fieldcount=1 \
-    | grep -E '^\[OVERALL\]|^\[UPDATE\]' | tee -a "results_$i.txt" 
+    -p threadcount=10 \
+    -p fieldcount=1 #\
+#    | grep -E '^\[OVERALL\]|^\[UPDATE\]' | tee -a "results_$i.txt" 
 
 echo "---------------------------------------"

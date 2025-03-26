@@ -80,6 +80,7 @@ public class RestClient extends DB {
 
   // Shared scheduler for timeouts.
   private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+  private PoolingHttpClientConnectionManager poolingConnManager;
 
   @Override
   public void init() throws DBException {
@@ -103,10 +104,10 @@ public class RestClient extends DB {
     requestBuilder.setSocketTimeout(readTimeout);
 
     // Create and configure the PoolingHttpClientConnectionManager.
-    PoolingHttpClientConnectionManager poolingConnManager = new PoolingHttpClientConnectionManager();
+    poolingConnManager = new PoolingHttpClientConnectionManager();
     // Set maximum total connections and max per route (adjust these values as needed)
-    poolingConnManager.setMaxTotal(1000);
-    poolingConnManager.setDefaultMaxPerRoute(1000);
+    poolingConnManager.setMaxTotal(50);
+    poolingConnManager.setDefaultMaxPerRoute(50);
 
     HttpClientBuilder clientBuilder = HttpClientBuilder.create()
       .setDefaultRequestConfig(requestBuilder.build())
@@ -246,6 +247,9 @@ public class RestClient extends DB {
   }
 
   private int httpExecute(HttpEntityEnclosingRequestBase request, String data) throws IOException {
+    long requestStart = System.nanoTime();
+    System.out.println("[DEBUG] Starting httpExecute at " + requestStart);
+
     requestTimedout.setIsSatisfied(false);
     ScheduledFuture<?> timeoutFuture = scheduler.schedule(() -> {
       requestTimedout.setIsSatisfied(true);
@@ -255,6 +259,9 @@ public class RestClient extends DB {
     for (int i = 0; i < headers.length; i += 2) {
       request.setHeader(headers[i], headers[i + 1]);
     }
+
+    // Log that we're sending a request
+    System.out.println("[DEBUG] Sending request: " + request.getRequestLine());
 
     InputStreamEntity reqEntity = new InputStreamEntity(
         new ByteArrayInputStream(data.getBytes()),
@@ -289,6 +296,14 @@ public class RestClient extends DB {
     }
     EntityUtils.consumeQuietly(responseEntity);
     response.close();
+
+    long requestEnd = System.nanoTime();
+    long durationMs = TimeUnit.NANOSECONDS.toMillis(requestEnd - requestStart);
+    System.out.println("[DEBUG] Finished httpExecute at " + requestEnd + " (" + durationMs + " ms)");
+
+    // Log connection pool stats
+    System.out.println("[DEBUG] Connection pool stats: " + poolingConnManager.getTotalStats());
+    
     return responseCode;
   }
 
