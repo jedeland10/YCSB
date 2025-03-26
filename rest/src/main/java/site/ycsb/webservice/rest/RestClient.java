@@ -36,6 +36,8 @@ import java.util.zip.GZIPInputStream;
 
 import javax.ws.rs.HttpMethod;
 
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.config.RequestConfig;
@@ -96,12 +98,22 @@ public class RestClient extends DB {
 
   private void setupClient() {
     RequestConfig.Builder requestBuilder = RequestConfig.custom();
-    requestBuilder = requestBuilder.setConnectTimeout(conTimeout);
-    requestBuilder = requestBuilder.setConnectionRequestTimeout(readTimeout);
-    requestBuilder = requestBuilder.setSocketTimeout(readTimeout);
-    HttpClientBuilder clientBuilder = HttpClientBuilder.create().setDefaultRequestConfig(requestBuilder.build());
-    // Create a persistent HTTP client.
-    this.client = clientBuilder.setConnectionManagerShared(true).build();
+    requestBuilder.setConnectTimeout(conTimeout);
+    requestBuilder.setConnectionRequestTimeout(readTimeout);
+    requestBuilder.setSocketTimeout(readTimeout);
+
+    // Create and configure the PoolingHttpClientConnectionManager.
+    PoolingHttpClientConnectionManager poolingConnManager = new PoolingHttpClientConnectionManager();
+    // Set maximum total connections and max per route (adjust these values as needed)
+    poolingConnManager.setMaxTotal(1000);
+    poolingConnManager.setDefaultMaxPerRoute(1000);
+
+    HttpClientBuilder clientBuilder = HttpClientBuilder.create()
+      .setDefaultRequestConfig(requestBuilder.build())
+      .setConnectionManager(poolingConnManager);
+
+    // Build the persistent HttpClient with connection pooling.
+    this.client = clientBuilder.build();
   }
 
   @Override
