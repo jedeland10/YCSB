@@ -23,8 +23,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.LockSupport;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * A thread for executing transactions or data inserts to the database.
  */
@@ -54,12 +52,13 @@ public class ClientThread implements Runnable {
    * @param dotransactions       true to do transactions, false to insert data
    * @param workload             the workload to use
    * @param props                the properties defining the experiment
-   * @param opcount              the number of operations (transactions or inserts) to do
+   * @param opcount              the number of operations (transactions or
+   *                             inserts) to do
    * @param targetperthreadperms target number of operations per thread per ms
    * @param completeLatch        The latch tracking the completion of all clients.
    */
   public ClientThread(DB db, boolean dotransactions, Workload workload, Properties props, int opcount,
-                      double targetperthreadperms, CountDownLatch completeLatch) {
+      double targetperthreadperms, CountDownLatch completeLatch) {
     this.db = db;
     this.dotransactions = dotransactions;
     this.workload = workload;
@@ -110,44 +109,29 @@ public class ClientThread implements Runnable {
       long randomMinorDelay = ThreadLocalRandom.current().nextInt((int) targetOpsTickNs);
       sleepUntil(System.nanoTime() + randomMinorDelay);
     }
-    
-    // Log thread start time
-    long threadStart = System.nanoTime();
-    System.out.println("[DEBUG] Thread " + threadid + " starting work at " + threadStart);
 
     try {
       if (dotransactions) {
         long startTimeNanos = System.nanoTime();
 
         while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-          long opStart = System.nanoTime();
-          System.out.println("[DEBUG] Thread " + threadid + " starting transaction op #" + (opsdone + 1) + " at " + opStart);
-
           if (!workload.doTransaction(db, workloadstate)) {
             break;
           }
 
           opsdone++;
-          long opEnd = System.nanoTime();
-          System.out.println("[DEBUG] Thread " + threadid + " finished transaction op #" + opsdone + " at " + opEnd +
-                             " (duration: " + TimeUnit.NANOSECONDS.toMillis(opEnd - opStart) + " ms)");
           throttleNanos(startTimeNanos);
         }
       } else {
         long startTimeNanos = System.nanoTime();
 
         while (((opcount == 0) || (opsdone < opcount)) && !workload.isStopRequested()) {
-          long opStart = System.nanoTime();
-          System.out.println("[DEBUG] Thread " + threadid + " starting insert op #" + (opsdone + 1) + " at " + opStart);
 
           if (!workload.doInsert(db, workloadstate)) {
             break;
           }
 
           opsdone++;
-          long opEnd = System.nanoTime();
-          System.out.println("[DEBUG] Thread " + threadid + " finished insert op #" + opsdone + " at " + opEnd +
-                             " (duration: " + TimeUnit.NANOSECONDS.toMillis(opEnd - opStart) + " ms)");
           throttleNanos(startTimeNanos);
         }
       }
@@ -160,15 +144,13 @@ public class ClientThread implements Runnable {
     try {
       measurements.setIntendedStartTimeNs(0);
       // If each thread has its own DB instance and you're cleaning up per thread,
-      // be aware this might interfere with others. Consider moving cleanup to the main thread.
+      // be aware this might interfere with others. Consider moving cleanup to the
+      // main thread.
       db.cleanup();
     } catch (DBException e) {
       e.printStackTrace();
       e.printStackTrace(System.out);
     } finally {
-      long threadEnd = System.nanoTime();
-      System.out.println("[DEBUG] Thread " + threadid + " completed. Total ops: " + opsdone +
-                         ". Total duration: " + TimeUnit.NANOSECONDS.toMillis(threadEnd - threadStart) + " ms");
       completeLatch.countDown();
     }
   }
@@ -182,7 +164,7 @@ public class ClientThread implements Runnable {
   }
 
   private void throttleNanos(long startTimeNanos) {
-    //throttle the operations
+    // throttle the operations
     if (targetOpsPerMs > 0) {
       // delay until next tick
       long deadline = startTimeNanos + opsdone * targetOpsTickNs;
