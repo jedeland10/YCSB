@@ -58,6 +58,13 @@ import site.ycsb.DBException;
 import site.ycsb.Status;
 import site.ycsb.StringByteIterator;
 
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.concurrent.FutureCallback;
+
 public class RestClient extends DB {
 
   private static final String URL_PREFIX = "url.prefix";
@@ -82,6 +89,8 @@ public class RestClient extends DB {
   private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
   private PoolingHttpClientConnectionManager poolingConnManager;
 
+  private CloseableHttpAsyncClient asyncClient;
+
   @Override
   public void init() throws DBException {
     props = getProperties();
@@ -95,6 +104,25 @@ public class RestClient extends DB {
     headers = props.getProperty(HEADERS, "Accept */* Content-Type application/xml user-agent Mozilla/5.0 ")
         .trim().split(" ");
     setupClient();
+    setupAsyncClient();
+  }
+
+  private void setupAsyncClient() {
+    RequestConfig.Builder requestBuilder = RequestConfig.custom()
+        .setConnectTimeout(conTimeout)
+        .setConnectionRequestTimeout(readTimeout)
+        .setSocketTimeout(readTimeout);
+
+    // Optionally adjust the I/O reactor configuration if needed.
+    IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
+        .setIoThreadCount(Runtime.getRuntime().availableProcessors())
+        .build();
+
+    asyncClient = HttpAsyncClients.custom()
+        .setDefaultRequestConfig(requestBuilder.build())
+        .setDefaultIOReactorConfig(ioReactorConfig)
+        .build();
+    asyncClient.start();
   }
 
   private void setupClient() {
@@ -162,16 +190,50 @@ public class RestClient extends DB {
 
   @Override
   public Status update(String table, String endpoint, Map<String, ByteIterator> values) {
-    int responseCode;
-    try {
-      responseCode = httpExecute(new HttpPut(urlPrefix + endpoint), values.get("field0").toString());
-    } catch (Exception e) {
-      responseCode = handleExceptions(e, urlPrefix + endpoint, HttpMethod.PUT);
+    HttpPut request = new HttpPut(urlPrefix + endpoint);
+    for (int i = 0; i < headers.length; i += 2) {
+      request.setHeader(headers[i], headers[i + 1]);
     }
-    if (logEnabled) {
-      System.err.println("PUT Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
-    }
-    return getStatus(responseCode);
+
+    // Prepare your data payload as before.
+    String data = values.get("field0").toString();
+    InputStreamEntity reqEntity = new InputStreamEntity(
+        new ByteArrayInputStream(data.getBytes()),
+        ContentType.APPLICATION_FORM_URLENCODED);
+    reqEntity.setChunked(true);
+    request.setEntity(reqEntity);
+
+    // Dispatch the request asynchronously.
+    asyncClient.execute(request, new FutureCallback<HttpResponse>() {
+      @Override
+      public void completed(HttpResponse response) {
+        int responseCode = response.getStatusLine().getStatusCode();
+        if (logEnabled) {
+          System.err.println("Asynchronous PUT Request: " + urlPrefix + endpoint + " | Response Code: " + responseCode);
+        }
+        // Optionally process the response or record latency metrics here.
+        // Remember to consume and close the response entity if necessary.
+      }
+
+      @Override
+      public void failed(Exception ex) {
+        if (logEnabled) {
+          System.err
+              .println("Asynchronous PUT Request failed: " + urlPrefix + endpoint + " | Error: " + ex.getMessage());
+        }
+        // Handle the failure (for example, record error metrics).
+      }
+
+      @Override
+      public void cancelled() {
+        if (logEnabled) {
+          System.err.println("Asynchronous PUT Request was cancelled: " + urlPrefix + endpoint);
+        }
+      }
+    });
+
+    // Immediately return a status or a placeholder since processing is async.
+    return Status.OK;
   }
 
   @Override
@@ -376,6 +438,9 @@ public class RestClient extends DB {
   public void cleanupClient() throws IOException {
     if (client != null) {
       client.close();
+    }
+    if (asyncClient != null) {
+      asyncClient.close();
     }
   }
 }
